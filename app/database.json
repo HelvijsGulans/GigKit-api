@@ -1,0 +1,42 @@
+[
+    {
+        "event_id": 1,
+        "event_name": "Concert",
+        "event_date": "2024-06-15",
+        "event_location": "New York City",
+        "event_description": "A live concert featuring popular artists.",
+        "event_price": 50.0
+    },
+    {
+        "event_id": 2,
+        "event_name": "Art Exhibition",
+        "event_date": "2024-07-10",
+        "event_location": "Los Angeles",
+        "event_description": "An exhibition showcasing contemporary art.",
+        "event_price": 20.0
+    },
+    {
+        "event_id": 3,
+        "event_name": "Food Festival",
+        "event_date": "2024-08-05",
+        "event_location": "Chicago",
+        "event_description": "A festival celebrating diverse cuisines.",
+        "event_price": 15.0
+    },
+    {
+        "event_id": 4,
+        "event_name": "Tech Conference",
+        "event_date": "2024-09-20",
+        "event_location": "San Francisco",
+        "event_description": "A conference for tech enthusiasts and professionals.",
+        "event_price": 100.0
+    },
+    {
+        "event_name": "Rock concert",
+        "event_date": "2065.23.04",
+        "event_location": "Madison Square Garden",
+        "event_description": "none",
+        "event_price": 23.5,
+        "event_id": 5
+    }
+]
