@@ -1,18 +1,16 @@
-import psycopg
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
-from psycopg.rows import dict_row
 
 load_dotenv()
 
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
 
-def connect_to_db():
-    return psycopg.connect(dbname = 'gigkit',
-                            user = 'postgres',
-                            password = DATABASE_PASSWORD,
-                            host = 'localhost',
-                            port = 5432,
-                            row_factory=dict_row
-                            )
+DATABASE_URL = f"postgresql+psycopg://postgres:{DATABASE_PASSWORD}@localhost:5432/gigkit"
 
+engine = create_engine(DATABASE_URL)
+
+SessionLocal = sessionmaker(engine)
+
+    

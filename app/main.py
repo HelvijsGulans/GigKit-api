@@ -1,13 +1,16 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from app.database import connect_to_db
+from app.database import SessionLocal
+from app.models import EventDB
+from sqlalchemy import select
+import datetime
 
 app = FastAPI()
 
 
-class Event(BaseModel):
+class EventCreate(BaseModel):
     name: str
-    date: str
+    date: datetime.date
     location: str
     description: str | None = None
     price: float | None = None
@@ -15,7 +18,7 @@ class Event(BaseModel):
 
 class UpdateEvent(BaseModel):
     name: str | None = None
-    date: str | None = None
+    date: datetime.date| None = None
     location: str | None = None
     description: str | None = None
     price: float | None = None
@@ -24,143 +27,104 @@ class UpdateEvent(BaseModel):
 @app.get("/events/{event_id}")
 def get_event(event_id: int):
 
-    conn = connect_to_db()
-    cur = conn.cursor()
+    with SessionLocal() as session:
+        event = session.get(EventDB, event_id)
 
-    cur.execute("SELECT * FROM events WHERE id = %s", (event_id,))
+        if event is None:
+            raise HTTPException(
+                status_code=404, 
+                detail="Item not found"
+            )
 
-    event = cur.fetchone()
-
-    conn.close()
-    cur.close()
-
-    if event is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-
-    else:
+    
         return event
 
 
 @app.post("/events")
-def create_event(event: Event):
+def create_event(event: EventCreate):
 
-    conn = connect_to_db()
-    cur = conn.cursor()
+    with SessionLocal() as session:
 
-    cur.execute(
-        """
-        INSERT INTO events 
-        (name, date, location, description, price) 
-        VALUES (%s, %s, %s, %s, %s) 
-        RETURNING *;
-        """,
-        (event.name, event.date, event.location, event.description, event.price))
+        new_event = EventDB(
+                name = event.name,
+                location = event.location,
+                date = event.date,
+                description = event.description,
+                price = event.price
+            )
 
-    new_event = cur.fetchone()
+        session.add(new_event)
+        session.commit()
+        session.refresh(new_event)
 
-    conn.commit()
-
-    conn.close()
-    cur.close()
-
-    return new_event
+        return new_event
 
 
 @app.get("/events")
 def get_all_events(location: str | None = None):
 
-    conn = connect_to_db()
-    cur = conn.cursor()
+    with SessionLocal() as session:
 
-    if location is None:
-        cur.execute("SELECT * FROM events;")
-        events = cur.fetchall()
+        statement = select(EventDB)
 
-        conn.close()
-        cur.close()
+        if location is not None:
+            statement = statement.where(
+                EventDB.location == location
+            )
+
+        events = session.scalars(statement).all()
 
         return events
-
-    cur.execute("SELECT * FROM events WHERE location = %s", (location,))
-
-    found_events = cur.fetchall()
-
-    conn.close()
-    cur.close()
-
-    return found_events
 
 
 @app.delete("/events/{event_id}")
 def delete_event(event_id: int):
 
-    conn = connect_to_db()
-    cur = conn.cursor()
+    with SessionLocal() as session:
+        event = session.get(EventDB, event_id)
 
-    cur.execute("DELETE FROM events WHERE id = %s RETURNING *;", (event_id,))
+        if event is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Event not found"
+            )
+        
+        
+        session.delete(event)
+        session.commit()
 
-    deleted_row = cur.fetchone()
+        return {"message" : "Event deleted"}
 
-    if deleted_row is None:
-        conn.close()
-        cur.close()
-        raise HTTPException(status_code=404, detail="Event not found")
 
-    conn.commit()
-
-    conn.close()
-    cur.close()
-
-    return {"message": f"Deleted {deleted_row}"}
 
 
 @app.patch("/events/{event_id}")
 def update_event(event_id: int, event_update: UpdateEvent):
 
-    conn = connect_to_db()
-    cur = conn.cursor()
+    with SessionLocal() as session:
 
-    updates = event_update.model_dump(exclude_unset=True)
+        event = session.get(EventDB, event_id)
 
-    if not updates:
-        cur.close()
-        conn.close()
-        raise HTTPException(
-            status_code=400,
-            detail="No details provided"
-        )
+        if event is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Event not found"
+            )
 
-    set_clause = ", ".join(
-        f"{column} = %s"
-        for column in updates
-    )
+        updates = event_update.model_dump(exclude_unset=True)
 
-    values = list(updates.values())
-    values.append(event_id)
+        if not updates:
+            raise HTTPException(
+                status_code=400,
+                detail="Updates not provided"
+            )
 
-    cur.execute(
-        f"""
-            UPDATE events SET {set_clause}
-            WHERE id = %s
-            RETURNING *
-            """, 
-            values
-        )
+        for field, value in updates.items():
+            setattr(event, field, value)
+ 
+        session.commit()
+        session.refresh(event)
 
-    updated_event = cur.fetchone()
+        return event
 
-    if updated_event is None:
-        conn.close()
-        cur.close()
-        raise HTTPException(
-            status_code=404,
-            detail="Event not found"
-        )
-
-    conn.commit()
-
-    conn.close()
-    cur.close()
-
-    return updated_event
-
+        
