@@ -1,109 +1,166 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import json
+from app.database import connect_to_db
 
 app = FastAPI()
 
+
 class Event(BaseModel):
-    event_name: str
-    event_date: str
-    event_location: str
-    event_description: str | None = None
-    event_price: float |  None = None
+    name: str
+    date: str
+    location: str
+    description: str | None = None
+    price: float | None = None
+
 
 class UpdateEvent(BaseModel):
-    event_name: str | None = None
-    event_date: str | None = None
-    event_location: str | None = None
-    event_description: str | None = None
-    event_price: float |  None = None
-
+    name: str | None = None
+    date: str | None = None
+    location: str | None = None
+    description: str | None = None
+    price: float | None = None
 
 
 @app.get("/events/{event_id}")
 def get_event(event_id: int):
-    with open("app/database.json") as f:
-        data = json.load(f)
-    for event in data:
-        if event["event_id"] == event_id:
-            return event
-        
-    raise HTTPException(status_code=404, detail="Item not found")
 
+    conn = connect_to_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM events WHERE id = %s", (event_id,))
+
+    event = cur.fetchone()
+
+    conn.close()
+    cur.close()
+
+    if event is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    else:
+        return event
 
 
 @app.post("/events")
 def create_event(event: Event):
 
-    with open("app/database.json", "r") as f:
-        data = json.load(f)
+    conn = connect_to_db()
+    cur = conn.cursor()
 
-    new_event = event.model_dump()
+    cur.execute(
+        """
+        INSERT INTO events 
+        (name, date, location, description, price) 
+        VALUES (%s, %s, %s, %s, %s) 
+        RETURNING *;
+        """,
+        (event.name, event.date, event.location, event.description, event.price))
 
-    new_event["event_id"] = len(data) + 1
+    new_event = cur.fetchone()
 
-    data.append(new_event)
+    conn.commit()
 
-    with open("app/database.json", "w") as f:
-        json.dump(data, f, indent=4)
+    conn.close()
+    cur.close()
 
     return new_event
-
 
 
 @app.get("/events")
 def get_all_events(location: str | None = None):
 
-    with open("app/database.json", "r") as f:
-        data = json.load(f)
+    conn = connect_to_db()
+    cur = conn.cursor()
 
     if location is None:
-        return data
+        cur.execute("SELECT * FROM events;")
+        events = cur.fetchall()
 
-    found_events = []
+        conn.close()
+        cur.close()
 
-    for event in data:
-        if event["event_location"] == location:
-            found_events.append(event)
+        return events
+
+    cur.execute("SELECT * FROM events WHERE location = %s", (location,))
+
+    found_events = cur.fetchall()
+
+    conn.close()
+    cur.close()
 
     return found_events
-
 
 
 @app.delete("/events/{event_id}")
 def delete_event(event_id: int):
 
-    with open("app/database.json", "r") as f:
-        data = json.load(f)
+    conn = connect_to_db()
+    cur = conn.cursor()
 
-    for event in data:
-        if event["event_id"] == event_id:
-            data.remove(event)
-            with open("app/database.json", "w") as f:
-                json.dump(data, f, indent=4)
+    cur.execute("DELETE FROM events WHERE id = %s RETURNING *;", (event_id,))
 
-            return "Event deleted sucessfully"
-    
+    deleted_row = cur.fetchone()
 
-    raise HTTPException(status_code=404, detail="Item not found")
-        
-    
+    if deleted_row is None:
+        conn.close()
+        cur.close()
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    conn.commit()
+
+    conn.close()
+    cur.close()
+
+    return {"message": f"Deleted {deleted_row}"}
+
 
 @app.patch("/events/{event_id}")
-def update_event(event_id : int, event_update : UpdateEvent):
+def update_event(event_id: int, event_update: UpdateEvent):
 
-    with open("app/database.json", "r") as f:
-        data = json.load(f)
+    conn = connect_to_db()
+    cur = conn.cursor()
 
-    for event in data:
-        if event["event_id"] == event_id:
-            update = event_update.model_dump(exclude_unset = True)
+    updates = event_update.model_dump(exclude_unset=True)
 
-            event.update(update)
+    if not updates:
+        cur.close()
+        conn.close()
+        raise HTTPException(
+            status_code=400,
+            detail="No details provided"
+        )
 
-            with open("app/database.json", "w") as f:
-                json.dump(data, f, indent=4)
+    set_clause = ", ".join(
+        f"{column} = %s"
+        for column in updates
+    )
 
-            return event
+    values = list(updates.values())
+    values.append(event_id)
 
-    raise HTTPException(status_code=404, detail="No event found")
+    cur.execute(
+        f"""
+            UPDATE events SET {set_clause}
+            WHERE id = %s
+            RETURNING *
+            """, 
+            values
+        )
+
+    updated_event = cur.fetchone()
+
+    if updated_event is None:
+        conn.close()
+        cur.close()
+        raise HTTPException(
+            status_code=404,
+            detail="Event not found"
+        )
+
+    conn.commit()
+
+    conn.close()
+    cur.close()
+
+    return updated_event
+
