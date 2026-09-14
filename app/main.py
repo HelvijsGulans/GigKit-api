@@ -155,6 +155,18 @@ def delete_workspace(workspace_id: uuid.UUID, session: Session = Depends(get_ses
             detail="Workspace not found"
         )
 
+    event = session.scalar(
+        select(EventDB).where(
+            EventDB.workspace_id == workspace_id
+        )
+    )
+
+    if event is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Workspace still contains events"
+        )
+
     session.delete(workspace)
     session.commit()
 
