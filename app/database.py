@@ -13,4 +13,8 @@ engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(engine)
 
+def get_session():
+    with SessionLocal() as session:
+        yield session
+
     
