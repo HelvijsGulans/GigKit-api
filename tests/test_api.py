@@ -167,4 +167,44 @@ def test_delete_event(client):
     assert get_response.status_code == 404
 
     
-        
+def test_cannot_delete_workspace_with_events(client):
+    workspace_response = client.post(
+        "/workspaces",
+        json={
+            "name" : "testName",
+            "color" : "red"
+        }
+    )
+
+    workspace_id = workspace_response.json()["id"]
+
+    client.post(
+        "/events",
+        json={
+            "workspace_id": workspace_id,
+            "name": "Original name",
+            "starts_at": "2026-09-20T20:00:00+03:00",
+            "venue": "Original venue",
+            "rider": [],
+            "stage_icons": [],
+            "stage_layout": None,
+        }
+    )
+
+    response = client.delete(
+        f"/workspaces/{workspace_id}"
+    )
+
+    assert response.status_code == 409
+
+    data = response.json()
+
+    assert data["detail"] == "Workspace still contains events"
+
+    exists = client.get(
+        f"/workspaces/{workspace_id}"
+    )
+
+    assert exists.status_code == 200
+
+
