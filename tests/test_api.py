@@ -230,8 +230,8 @@ def test_new_login(client):
 
     data = response.json()
 
-    
-    assert data["message"] == "Login successful"
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
 
 
 def test_wrong_email(client):

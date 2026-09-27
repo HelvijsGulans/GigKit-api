@@ -13,6 +13,8 @@ This project is built with FastAPI and PostgreSQL and serves as the backend foun
 - Alembic
 - Pydantic
 - psycopg
+- PyJWT
+- pwdlib / Argon2
 - pytest
 
 ## Features
@@ -27,6 +29,11 @@ This project is built with FastAPI and PostgreSQL and serves as the backend foun
 - Database migrations with Alembic
 - Request validation with Pydantic
 - Automated API tests using an isolated PostgreSQL test database
+- User registration
+- Password hashing with Argon2
+- User login
+- JWT-based authentication
+- Protected current-user endpoint
 
 ## Data Model
 
@@ -55,6 +62,13 @@ A workspace can contain multiple events.
 
 Relational data such as workspace ownership is stored using normal PostgreSQL columns and foreign keys. More document-like data such as riders and stage layouts is stored as JSONB because these structures belong to an event and can contain nested data.
 
+### User
+
+- `id` - UUID
+- `email` - unique
+- `password_hash`
+- `created_at`
+
 ## API
 
 The API currently exposes endpoints for managing workspaces and events.
@@ -71,6 +85,10 @@ GET    /events/{event_id}
 POST   /events
 PATCH  /events/{event_id}
 DELETE /events/{event_id}
+
+POST /users
+POST /users/login
+GET  /users/me
 ```
 
 Events can also be filtered by workspace:
@@ -78,6 +96,8 @@ Events can also be filtered by workspace:
 ```text
 GET /events?workspace_id=<uuid>
 ```
+
+
 
 Interactive API documentation is automatically available through FastAPI at:
 
@@ -132,6 +152,7 @@ Copy `.env.example` to `.env` and set your PostgreSQL password:
 
 ```env
 DATABASE_PASSWORD=your_postgres_password
+JWT_SECRET=your_jwt_secret
 ```
 
 The current local configuration expects PostgreSQL to run on:
@@ -176,20 +197,25 @@ Then run:
 python -m pytest
 ```
 
-The test suite covers core API behaviour including workspace creation, event creation, event updates, event deletion, and invalid workspace references.
+The test suite covers workspace and event CRUD, invalid resource references,
+user login, authentication, and protected current-user access.
 
 ## Project Structure
 
 ```text
 GigKit-api/
 ├── app/
+│   ├── routers/
+│   │   ├── users.py
+│   │   ├── workspaces.py
+│   │   └── events.py
 │   ├── database.py
+│   ├── dependencies.py
 │   ├── main.py
-│   └── models.py
-├── alembic/
+│   ├── models.py
+│   ├── schemas.py
+│   └── security.py
 ├── tests/
-│   ├── conftest.py
-│   └── test_api.py
 ├── .env.example
 ├── alembic.ini
 ├── requirements.txt
