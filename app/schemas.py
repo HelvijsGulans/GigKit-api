@@ -39,3 +39,7 @@ class UserResponse(BaseModel):
     id: uuid.UUID
     email: str
     created_at: datetime.datetime
+
+class UserLogin(BaseModel):
+    email: str
+    password: str

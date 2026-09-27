@@ -208,3 +208,79 @@ def test_cannot_delete_workspace_with_events(client):
     assert exists.status_code == 200
 
 
+def test_new_login(client):
+    client.post(
+        "/users",
+        json={
+            "email": "freddy@yahoo.lv",
+            "password": "secure69"
+        }
+    )
+
+    
+    response = client.post(
+        "/users/login",
+        json={
+            "email": "freddy@yahoo.lv",
+            "password": "secure69"
+        }
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    
+    assert data["message"] == "Login successful"
+
+
+def test_wrong_email(client):
+    client.post(
+        "/users",
+        json={
+            "email": "freddy@yahoo.lv",
+            "password": "secure69"
+        }
+    )
+
+    
+    response = client.post(
+        "/users/login",
+        json={
+            "email": "freddy@gmail.lv",
+            "password": "secure69"
+        }
+    )
+
+    assert response.status_code == 401
+
+    data = response.json()
+
+    
+    assert data["detail"] == "Invalid email or password"
+
+
+def test_wrong_password(client):
+    client.post(
+        "/users",
+        json={
+            "email": "freddy@yahoo.lv",
+            "password": "secure69"
+        }
+    )
+
+    
+    response = client.post(
+        "/users/login",
+        json={
+            "email": "freddy@yahoo.lv",
+            "password": "reallysafe 20"
+        }
+    )
+
+    assert response.status_code == 401
+
+    data = response.json()
+
+    
+    assert data["detail"] == "Invalid email or password"
