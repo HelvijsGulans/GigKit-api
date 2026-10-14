@@ -82,7 +82,6 @@ def test_create_event(client):
     response = client.post(
         f"/workspaces/{workspace_id}/events",
         json={
-            "workspace_id": workspace_id,
             "name": "Test event",
             "starts_at": "2026-09-20T20:00:00+03:00",
             "venue": "Dzintari",
@@ -130,7 +129,6 @@ def test_create_event_with_missing_workspace(client):
     response = client.post(
         f"/workspaces/{fake_workspace_uuid}/events",
         json={
-            "workspace_id": fake_workspace_uuid,
             "name": "Test event",
             "starts_at": "2026-09-20T20:00:00+03:00",
             "venue": "Dzintari",
@@ -187,7 +185,6 @@ def test_update_event(client):
     event_response = client.post(
         f"/workspaces/{workspace_id}/events",
         json={
-            "workspace_id": workspace_id,
             "name": "Original name",
             "starts_at": "2026-09-20T20:00:00+03:00",
             "venue": "Original venue",
@@ -258,7 +255,6 @@ def test_delete_event(client):
     event_create = client.post(
         f"/workspaces/{workspace_id}/events",
         json={
-            "workspace_id": workspace_id,
             "name": "Original name",
             "starts_at": "2026-09-20T20:00:00+03:00",
             "venue": "Original venue",
@@ -312,7 +308,6 @@ def test_cannot_delete_workspace_with_events(client):
     client.post(
         f"/workspaces/{workspace_id}/events",
         json={
-            "workspace_id": workspace_id,
             "name": "Original name",
             "starts_at": "2026-09-20T20:00:00+03:00",
             "venue": "Original venue",
@@ -348,9 +343,6 @@ def test_new_login(client):
     data = response.json()
 
     assert "access_token" in data
-
-    if not "access_token" in data:
-        assert response.status_code == 401
 
     assert data["token_type"] == "bearer"
 
@@ -400,6 +392,8 @@ def test_ownership_of_workspaces(client):
         "/users/login", json={"email": "user2@gmail.com", "password": "password2"}
     )
 
+    token2 = login2.json()["access_token"]
+    headers2 = {"Authorization": f"bearer {token2}"}
     assert login2.json()["token_type"] == "bearer"
 
     workspace = client.post(
@@ -419,3 +413,28 @@ def test_ownership_of_workspaces(client):
     )
 
     assert response.status_code == 200
+
+    workspace_invalid_get = client.get(
+        f"/workspaces/{workspace_id}",
+        headers=headers2,
+    )
+
+    assert workspace_invalid_get.status_code == 404
+
+    workspace_invalid_patch = client.patch(
+        f"/workspaces/{workspace_id}",
+        json={
+            "name": "workspace1",
+            "color": "blue",
+        },
+        headers=headers2,
+    )
+
+    assert workspace_invalid_patch.status_code == 404
+
+    workspace_invalid_delete = client.delete(
+        f"/workspaces/{workspace_id}",
+        headers=headers2,
+    )
+
+    assert workspace_invalid_delete.status_code == 404
