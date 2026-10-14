@@ -5,4 +5,5 @@ app = FastAPI()
 
 app.include_router(workspaces.router)
 app.include_router(events.router)
+app.include_router(events.workspace_router)
 app.include_router(users.router)

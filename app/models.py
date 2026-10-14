@@ -1,19 +1,19 @@
 import datetime
-from sqlalchemy import DateTime, ForeignKey, Text, func 
+from sqlalchemy import DateTime, ForeignKey, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 import uuid
 
 
-
 class Base(DeclarativeBase):
     pass
+
 
 class EventDB(Base):
     __tablename__ = "events"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    
+
     workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"))
     workspace: Mapped["WorkspaceDB"] = relationship(back_populates="events")
 
@@ -22,18 +22,18 @@ class EventDB(Base):
     starts_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True))
 
     rider: Mapped[list] = mapped_column(JSONB, default=list)
-    stage_icons: Mapped[list] = mapped_column(JSONB, default=list,)
+    stage_icons: Mapped[list] = mapped_column(
+        JSONB,
+        default=list,
+    )
     stage_layout: Mapped[dict | None] = mapped_column(JSONB)
 
     created_at: Mapped[datetime.datetime] = mapped_column(
-    DateTime(timezone=True),
-    server_default=func.now()
+        DateTime(timezone=True), server_default=func.now()
     )
 
     updated_at: Mapped[datetime.datetime] = mapped_column(
-    DateTime(timezone=True),
-    server_default=func.now(),
-    onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
 
@@ -42,21 +42,23 @@ class WorkspaceDB(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
 
-    events: Mapped[list["EventDB"]] = relationship(back_populates="workspace")    
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+
+    owner: Mapped["UserDB"] = relationship(back_populates="workspaces")
+
+    events: Mapped[list["EventDB"]] = relationship(back_populates="workspace")
 
     name: Mapped[str] = mapped_column(Text)
     color: Mapped[str] = mapped_column(Text)
 
     created_at: Mapped[datetime.datetime] = mapped_column(
-    DateTime(timezone=True),
-    server_default=func.now()
+        DateTime(timezone=True), server_default=func.now()
     )
 
     updated_at: Mapped[datetime.datetime] = mapped_column(
-    DateTime(timezone=True),
-    server_default=func.now(),
-    onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
 
 class UserDB(Base):
     __tablename__ = "users"
@@ -64,11 +66,11 @@ class UserDB(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
 
     email: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
-    
+
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
 
+    workspaces: Mapped[list["WorkspaceDB"]] = relationship(back_populates="owner")
+
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )

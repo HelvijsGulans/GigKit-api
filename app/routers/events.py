@@ -2,42 +2,49 @@ import uuid
 
 from fastapi import FastAPI, HTTPException, APIRouter, Depends
 from app.database import get_session
-from app.models import EventDB, WorkspaceDB
+from app.dependencies import get_current_user
+from app.models import EventDB, UserDB, WorkspaceDB
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.schemas import EventCreate, EventUpdate
 
-
-router = APIRouter(
-    prefix="/events",
-    tags=["events"]
-)
-
+router = APIRouter(prefix="/events", tags=["events"])
+workspace_router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
 
 @router.get("/{event_id}")
-def get_event(event_id: uuid.UUID, session: Session = Depends(get_session)):
+def get_event(
+    event_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    current_user: UserDB = Depends(get_current_user),
+):
 
-    event = session.get(EventDB, event_id)
+    event = session.scalar(
+        select(EventDB)
+        .join(WorkspaceDB)
+        .where(WorkspaceDB.owner_id == current_user.id, EventDB.id == event_id)
+    )
 
     if event is None:
-        raise HTTPException(
-            status_code=404, 
-            detail="Event not found"
-        )
-
+        raise HTTPException(status_code=404, detail="Event not found")
 
     return event
 
 
+@workspace_router.post("/{workspace_id}/events")
+def create_event(
+    workspace_id: uuid.UUID,
+    event: EventCreate,
+    session: Session = Depends(get_session),
+    current_user: UserDB = Depends(get_current_user),
+):
 
-
-
-@router.post("")
-def create_event(event: EventCreate, session: Session = Depends(get_session)):
-
-    workspace = session.get(WorkspaceDB, event.workspace_id)
+    workspace = session.scalar(
+        select(WorkspaceDB).where(
+            WorkspaceDB.id == workspace_id, WorkspaceDB.owner_id == current_user.id
+        )
+    )
 
     if workspace is None:
         raise HTTPException(
@@ -46,15 +53,14 @@ def create_event(event: EventCreate, session: Session = Depends(get_session)):
         )
 
     new_event = EventDB(
-            workspace_id = event.workspace_id,
-            name = event.name,
-            venue = event.venue,
-            starts_at = event.starts_at,
-            rider = event.rider,
-            stage_icons = event.stage_icons,
-            stage_layout = event.stage_layout
-            
-        )
+        workspace_id=workspace_id,
+        name=event.name,
+        venue=event.venue,
+        starts_at=event.starts_at,
+        rider=event.rider,
+        stage_icons=event.stage_icons,
+        stage_layout=event.stage_layout,
+    )
 
     session.add(new_event)
     session.commit()
@@ -63,56 +69,65 @@ def create_event(event: EventCreate, session: Session = Depends(get_session)):
     return new_event
 
 
+@workspace_router.get("/{workspace_id}/events")
+def get_all_events(
+    workspace_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    current_user: UserDB = Depends(get_current_user),
+):
 
-
-@router.get("")
-def get_all_events(workspace_id: uuid.UUID | None = None, session: Session = Depends(get_session)):
-
-    statement = select(EventDB)
-
-    if workspace_id is not None:
-        statement = statement.where(
-            EventDB.workspace_id == workspace_id
+    statement = (
+        select(EventDB)
+        .join(WorkspaceDB)
+        .where(
+            WorkspaceDB.owner_id == current_user.id,
+            EventDB.workspace_id == workspace_id,
         )
+    )
 
     events = session.scalars(statement).all()
 
     return events
 
 
-
-
-
 @router.delete("/{event_id}")
-def delete_event(event_id: uuid.UUID, session: Session = Depends(get_session)):
+def delete_event(
+    event_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    current_user: UserDB = Depends(get_current_user),
+):
 
-    event = session.get(EventDB, event_id)
+    event = session.scalar(
+        select(EventDB)
+        .join(WorkspaceDB)
+        .where(EventDB.id == event_id, WorkspaceDB.owner_id == current_user.id)
+    )
 
     if event is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Event not found"
-        )
-    
-    
+        raise HTTPException(status_code=404, detail="Event not found")
+
     session.delete(event)
     session.commit()
 
-    return {"message" : "Event deleted"}
-
-
+    return {"message": "Event deleted"}
 
 
 @router.patch("/{event_id}")
-def update_event(event_id: uuid.UUID, event_update: EventUpdate, session: Session = Depends(get_session)):
+def update_event(
+    event_id: uuid.UUID,
+    event_update: EventUpdate,
+    session: Session = Depends(get_session),
+    current_user: UserDB = Depends(get_current_user),
+):
 
-    event = session.get(EventDB, event_id)
+    event = session.scalar(
+        select(EventDB)
+        .join(WorkspaceDB)
+        .where(EventDB.id == event_id, WorkspaceDB.owner_id == current_user.id)
+    )
 
     if event is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Event not found"
-        )
+        raise HTTPException(status_code=404, detail="Event not found")
 
     updates = event_update.model_dump(exclude_unset=True)
 
@@ -138,9 +153,11 @@ def update_event(event_id: uuid.UUID, event_update: EventUpdate, session: Sessio
             )
 
     if "workspace_id" in updates:
-        workspace = session.get(
-            WorkspaceDB,
-            updates["workspace_id"],
+        workspace = session.scalar(
+            select(WorkspaceDB).where(
+                WorkspaceDB.id == updates["workspace_id"],
+                WorkspaceDB.owner_id == current_user.id,
+            )
         )
 
         if workspace is None:
@@ -156,5 +173,3 @@ def update_event(event_id: uuid.UUID, event_update: EventUpdate, session: Sessio
     session.refresh(event)
 
     return event
-
-        

@@ -1,5 +1,6 @@
 import uuid
 
+
 def test_api_starts(client):
     response = client.get("/openapi.json")
 
@@ -7,15 +8,38 @@ def test_api_starts(client):
 
 
 def test_create_workspace(client):
+    client.post(
+        "/users",
+        json={
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    login = client.post(
+        "/users/login",
+        json={
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    assert login.status_code == 200
+
+    token = login.json()["access_token"]
+
+    headers = {"Authorization": f"Bearer {token}"}
+
     response = client.post(
         "/workspaces",
         json={
-            "name" : "Test Workspace",
-            "color" : "Green"
-        }
+            "name": "Test Workspace",
+            "color": "Green",
+        },
+        headers=headers,
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     data = response.json()
 
@@ -25,27 +49,48 @@ def test_create_workspace(client):
 
 
 def test_create_event(client):
+    client.post(
+        "/users",
+        json={
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    login = client.post(
+        "/users/login",
+        json={
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    assert login.status_code == 200
+
+    token = login.json()["access_token"]
+
+    headers = {"Authorization": f"Bearer {token}"}
+
     workspace_response = client.post(
         "/workspaces",
-        json={
-            "name" : "Test Workspace 2",
-            "color" : "Blue"
-        }
+        json={"name": "Test Workspace 2", "color": "Blue"},
+        headers=headers,
     )
 
     workspace_id = workspace_response.json()["id"]
 
     response = client.post(
-        "/events",
+        f"/workspaces/{workspace_id}/events",
         json={
-            "workspace_id" : workspace_id,
-            "name" : "Test event",
-            "starts_at" : "2026-09-20T20:00:00+03:00",
-            "venue" : "Dzintari",
-            "rider" : [],
-            "stage_icons" : [],
-            "stage_layout" : None
-        }
+            "workspace_id": workspace_id,
+            "name": "Test event",
+            "starts_at": "2026-09-20T20:00:00+03:00",
+            "venue": "Dzintari",
+            "rider": [],
+            "stage_icons": [],
+            "stage_layout": None,
+        },
+        headers=headers,
     )
 
     assert response.status_code == 200
@@ -58,20 +103,42 @@ def test_create_event(client):
 
 
 def test_create_event_with_missing_workspace(client):
+    client.post(
+        "/users",
+        json={
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    login = client.post(
+        "/users/login",
+        json={
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    assert login.status_code == 200
+
+    token = login.json()["access_token"]
+
+    headers = {"Authorization": f"Bearer {token}"}
 
     fake_workspace_uuid = str(uuid.uuid4())
 
     response = client.post(
-        "/events",
+        f"/workspaces/{fake_workspace_uuid}/events",
         json={
-            "workspace_id" : fake_workspace_uuid,
-            "name" : "Test event",
-            "starts_at" : "2026-09-20T20:00:00+03:00",
-            "venue" : "Dzintari",
-            "rider" : [],
-            "stage_icons" : [],
-            "stage_layout" : None
-        }
+            "workspace_id": fake_workspace_uuid,
+            "name": "Test event",
+            "starts_at": "2026-09-20T20:00:00+03:00",
+            "venue": "Dzintari",
+            "rider": [],
+            "stage_icons": [],
+            "stage_layout": None,
+        },
+        headers=headers,
     )
 
     assert response.status_code == 404
@@ -82,20 +149,43 @@ def test_create_event_with_missing_workspace(client):
 
 
 def test_update_event(client):
+    client.post(
+        "/users",
+        json={
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    login = client.post(
+        "/users/login",
+        json={
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    assert login.status_code == 200
+
+    token = login.json()["access_token"]
+
+    headers = {"Authorization": f"Bearer {token}"}
+
     workspace_response = client.post(
         "/workspaces",
         json={
             "name": "Test Workspace",
             "color": "Blue",
         },
+        headers=headers,
     )
 
-    assert workspace_response.status_code == 200
+    assert workspace_response.status_code == 201
 
     workspace_id = workspace_response.json()["id"]
 
     event_response = client.post(
-        "/events",
+        f"/workspaces/{workspace_id}/events",
         json={
             "workspace_id": workspace_id,
             "name": "Original name",
@@ -105,6 +195,7 @@ def test_update_event(client):
             "stage_icons": [],
             "stage_layout": None,
         },
+        headers=headers,
     )
 
     assert event_response.status_code == 200
@@ -117,6 +208,7 @@ def test_update_event(client):
             "name": "Different test name",
             "venue": "Different venue",
         },
+        headers=headers,
     )
 
     assert response.status_code == 200
@@ -128,19 +220,43 @@ def test_update_event(client):
 
 
 def test_delete_event(client):
+    client.post(
+        "/users",
+        json={
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    login = client.post(
+        "/users/login",
+        json={
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    assert login.status_code == 200
+
+    token = login.json()["access_token"]
+
+    headers = {"Authorization": f"Bearer {token}"}
 
     workspace_response = client.post(
-            "/workspaces",
-            json={
-                "name": "Test Workspace",
-                "color": "Blue",
-            },
-        )
-    
+        "/workspaces",
+        json={
+            "name": "Test Workspace",
+            "color": "Blue",
+        },
+        headers=headers,
+    )
+
     workspace_id = workspace_response.json()["id"]
 
-    event_response = client.post(
-        "/events",
+    assert workspace_response.status_code == 201
+
+    event_create = client.post(
+        f"/workspaces/{workspace_id}/events",
         json={
             "workspace_id": workspace_id,
             "name": "Original name",
@@ -150,36 +266,51 @@ def test_delete_event(client):
             "stage_icons": [],
             "stage_layout": None,
         },
+        headers=headers,
     )
 
-    event_id = event_response.json()["id"]
+    event_id = event_create.json()["id"]
 
-    response = client.delete(
-        f"/events/{event_id}"
-    )
+    response = client.delete(f"/events/{event_id}", headers=headers)
 
     assert response.status_code == 200
 
-    get_response = client.get(
-        f"/events/{event_id}"
-    )
+    get_response = client.get(f"/events/{event_id}", headers=headers)
 
     assert get_response.status_code == 404
 
-    
+
 def test_cannot_delete_workspace_with_events(client):
-    workspace_response = client.post(
-        "/workspaces",
+    client.post(
+        "/users",
         json={
-            "name" : "testName",
-            "color" : "red"
-        }
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    login = client.post(
+        "/users/login",
+        json={
+            "email": "user1@gmail.com",
+            "password": "password1",
+        },
+    )
+
+    assert login.status_code == 200
+
+    token = login.json()["access_token"]
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    workspace_response = client.post(
+        "/workspaces", json={"name": "testName", "color": "red"}, headers=headers
     )
 
     workspace_id = workspace_response.json()["id"]
 
     client.post(
-        "/events",
+        f"/workspaces/{workspace_id}/events",
         json={
             "workspace_id": workspace_id,
             "name": "Original name",
@@ -188,12 +319,11 @@ def test_cannot_delete_workspace_with_events(client):
             "rider": [],
             "stage_icons": [],
             "stage_layout": None,
-        }
+        },
+        headers=headers,
     )
 
-    response = client.delete(
-        f"/workspaces/{workspace_id}"
-    )
+    response = client.delete(f"/workspaces/{workspace_id}", headers=headers)
 
     assert response.status_code == 409
 
@@ -201,29 +331,16 @@ def test_cannot_delete_workspace_with_events(client):
 
     assert data["detail"] == "Workspace still contains events"
 
-    exists = client.get(
-        f"/workspaces/{workspace_id}"
-    )
+    exists = client.get(f"/workspaces/{workspace_id}", headers=headers)
 
     assert exists.status_code == 200
 
 
 def test_new_login(client):
-    client.post(
-        "/users",
-        json={
-            "email": "freddy@yahoo.lv",
-            "password": "secure69"
-        }
-    )
+    client.post("/users", json={"email": "freddy@yahoo.lv", "password": "secure69"})
 
-    
     response = client.post(
-        "/users/login",
-        json={
-            "email": "freddy@yahoo.lv",
-            "password": "secure69"
-        }
+        "/users/login", json={"email": "freddy@yahoo.lv", "password": "secure69"}
     )
 
     assert response.status_code == 200
@@ -231,56 +348,74 @@ def test_new_login(client):
     data = response.json()
 
     assert "access_token" in data
+
+    if not "access_token" in data:
+        assert response.status_code == 401
+
     assert data["token_type"] == "bearer"
 
 
 def test_wrong_email(client):
-    client.post(
-        "/users",
-        json={
-            "email": "freddy@yahoo.lv",
-            "password": "secure69"
-        }
-    )
+    client.post("/users", json={"email": "freddy@yahoo.lv", "password": "secure69"})
 
-    
     response = client.post(
-        "/users/login",
-        json={
-            "email": "freddy@gmail.lv",
-            "password": "secure69"
-        }
+        "/users/login", json={"email": "freddy@gmail.lv", "password": "secure69"}
     )
 
     assert response.status_code == 401
 
     data = response.json()
 
-    
     assert data["detail"] == "Invalid email or password"
 
 
 def test_wrong_password(client):
-    client.post(
-        "/users",
-        json={
-            "email": "freddy@yahoo.lv",
-            "password": "secure69"
-        }
-    )
+    client.post("/users", json={"email": "freddy@yahoo.lv", "password": "secure69"})
 
-    
     response = client.post(
-        "/users/login",
-        json={
-            "email": "freddy@yahoo.lv",
-            "password": "reallysafe 20"
-        }
+        "/users/login", json={"email": "freddy@yahoo.lv", "password": "reallysafe 20"}
     )
 
     assert response.status_code == 401
 
     data = response.json()
 
-    
     assert data["detail"] == "Invalid email or password"
+
+
+def test_ownership_of_workspaces(client):
+    client.post("/users", json={"email": "user1@gmail.com", "password": "password1"})
+    client.post("/users", json={"email": "user2@gmail.com", "password": "password2"})
+
+    login1 = client.post(
+        "/users/login", json={"email": "user1@gmail.com", "password": "password1"}
+    )
+
+    token1 = login1.json()["access_token"]
+    headers1 = {"Authorization": f"bearer {token1}"}
+
+    assert login1.json()["token_type"] == "bearer"
+
+    login2 = client.post(
+        "/users/login", json={"email": "user2@gmail.com", "password": "password2"}
+    )
+
+    assert login2.json()["token_type"] == "bearer"
+
+    workspace = client.post(
+        "/workspaces",
+        json={
+            "name": "workspace1",
+            "color": "blue",
+        },
+        headers=headers1,
+    )
+
+    workspace_id = workspace.json()["id"]
+
+    response = client.get(
+        f"/workspaces/{workspace_id}",
+        headers=headers1,
+    )
+
+    assert response.status_code == 200
